@@ -1,0 +1,1099 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>ElasticSearch Meetup Lyon #1 - Resiliency</title>
+
+		<meta name="description" content="Talk about ElasticSearch resiliency features">
+		<meta name="author" content="Simon Bahuchet, Thomas Cucchietti">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="reveal.js/css/reveal.min.css">
+		<link rel="stylesheet" href="reveal.js/css/theme/es.css" id="theme">
+
+		<!-- For syntax highlighting -->
+		<link rel="stylesheet" href="reveal.js/lib/css/zenburn.css">
+
+		<!-- If the query includes 'print-pdf', include the PDF print sheet -->
+		<script>
+			if( window.location.search.match( /reveal.js/print-pdf/gi ) ) {
+				var link = document.createElement( 'link' );
+				link.rel = 'stylesheet';
+				link.type = 'text/css';
+				link.href = 'reveal.js/css/print/pdf.css';
+				document.getElementsByTagName( 'head' )[0].appendChild( link );
+			}
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="reveal.js/lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+			<div class="slides">
+				<section>
+					<h3>Meetup Lyon #1</h3>
+					<h1>ElasticSearch & Resiliency</h1>
+				</section>
+
+				<section>
+					<section class="fragments" data-background="./img/pulpfiction.jpg">
+						<h2>Who are we?</h2>
+					</section>
+					
+					<section>
+						<div class="wrapper">
+							<div class="leftcolumn">
+								<h3>Thomas Cucchietti</h3>
+								<ul>
+									<li>ElasticSearch expert</li>
+									<li><a href="http://www.zenika.com/">Zenika</a></li>
+									<li><a mailto="thomas.cucchietti@zenika.com">thomas.cucchietti@zenika.com</a></li>
+									<li>@<a href="http://www.twitter.com/tcucchietti">tcucchietti</a></li>
+									<li>GitHub: <a href="http://github.com/tcucchietti">tcucchietti</a></li>
+								</ul>
+							</div>
+							<div class="rightcolumn">
+								<h3>Simon Bahuchet</h3>
+								<ul class="no-style">
+									<li>Java Dev.</p></li>
+									<li><a href="http://worldline.com/fr/accueil.html">Worldline by Atos</a></li>
+									<li><a mailto="uncle.garf@gmail.com">uncle.garf@gmail.com</a></li>
+									<li>@<a href="http://www.twitter.com/unclegarf">UncleGarf</a></li>
+									<li>GitHub: <a href="http://github.com/simonbahuchet">simonbahuchet</a></li>
+								</ul>
+							</div>
+						</div>
+				
+					</section>
+				</section>
+
+				<section>
+					<h2>Resiliency...</h2>
+					<blockquote class="fade-in">
+						Ability to withstand or recover quickly from difficult conditions.
+					</blockquote>
+					<aside class="notes">
+						First, as usual, a quick look at the definition of resiliency, according to wikipedia :
+						resiliency is all about keeping the service up no matter what happens.
+					</aside>
+				</section>
+
+				<section>
+					<h2>... and ElasticSearch</h2>
+					<p>Until recently, not so documented...</p>
+					<p><img height="500" src="img/es-search.jpg"></p>
+					<aside class="notes">
+						Until recently, this particular field of interest wasn't so much documented and is not often
+						discussed when talking about ElasticSearch.
+						A quick search on the subjet on g**gle gives us only one valid result...
+					</aside>
+				</section>
+
+				<section data-transition="none">
+					<h2>... and ElasticSearch</h2>
+					<p>Until recently, not so documented...</p>
+					<p><img height="500" src="img/es-overview.jpg"></p>
+					<aside class="notes">... which is not as informative as we would like it to be.</aside>
+				</section>
+
+				<section>
+					<h2>Talk's main goal(s)</h2>
+					<br/>
+					<p class="fade-in">
+						<ol>
+							<ul>* Explain how ES behaves in some harsh conditions</ul>
+							<ul>* Demo some use cases</ul>
+						</ol>
+					</p>
+					<aside class="notes">
+						That's why our goal(s) here, will be to :
+						<ul>
+							<li>explain you the theory behind the resiliency of ElasticSearch clusters in different situations</li>
+							<li>show you actually what happens whith a running cluster</li>
+						</ul>
+					</aside>
+				</section>
+
+				<!-- SIMON //-->
+
+				<section>
+					<section>
+						<h2>Back to basics: Shard your data</h2>
+						<img height="500" src="./img/sharding.png"/>
+						<br/>
+						<p>1 ElasticSearch Index  <=> N shards</p>
+						<aside class="notes">
+							For those here which don't know yet, a quick reminder about the
+							distributed nature of ElasticSearch:
+							<ul>
+								<li>Corpus of documents is divided into chunks called <em>shards</em></li>
+								<li>Shards are allocated to nodes in your cluster.. </li>
+							</ul>
+						</aside>
+					</section>
+
+					<section>
+						<h2>Back to basics: <br/>Distribute the shards</h2>
+						<br/>
+						<img width="700" src="./img/distribute.png"/>
+						<br/>
+						<aside class="notes">
+							<ul>
+								<li>..as your cluster grows or shrinks, Elasticsearch will
+									automatically migrate shards between nodes so that the cluster
+									 remains balanced</li>
+							</ul>
+						</aside>
+					</section>
+					
+					<section>
+						<h2>Back to basics: <br/>Routing</h2>
+						<br/>
+						<img width="700" src="./img/cluster_nodes_1.png"/>
+						<br/>
+						<aside class="notes">
+							<ul>
+								<li>As users, we can talk to any node in the cluster. Every node
+									 knows where each document lives and can route our request
+									(whether indexing or querying) to the appropriate node.
+								</li>
+							</ul>
+						</aside>
+					</section>
+
+					<section>
+						<h2>Setup for the demo</h2>
+						<p></p>
+						<img width="500" src="img/demo_setup.png"/>
+						<aside class="notes">
+							For sure, we won't use bare-metal servers for our
+							demos but docker containers...
+						</aside>
+					</section>
+
+					<section>
+						<h2>Tooling for our demos</h2>
+						<p class="fade-in">
+							five nodes cluster (ElasticSearch version : 1.4.0)<br/>
+							<img height="130" src="img/virtualbox.jpg"/>
+							<img height="130" src="img/vagrant.jpg"/>
+							<img height="130" src="img/docker.jpg"/>
+						</p>
+						<p class="fade-in">
+							JMeter (slightly) randomized test plan<br/>
+							<img height="130" src="img/jmeter.png"/>
+						</p>
+						<p class="fade-in">
+							simple node cluster for monitoring<br/>
+							<img height="150" src="img/logstash.png"/>
+							<img height="130" src="img/kibana_logo.png"/>
+						</p>
+
+						<aside class="notes">
+							3 tiers:
+							<ul>
+								<li>1st: targeted cluster</li>
+								<li>We will query it using JMeter to ensure a rather constant
+									load, with (a bit) requests randomized</li>
+								<li>The result are written to a result file, which is "consumed"
+									 by Logstash, an ETL which is the "K" from the ELK stack</li>
+								<li>The result is then inserted into a second ElasticSearch
+									cluster used only for monitoring purpose with Kibana to
+									display some metrics : avg and max latency, and response codes</li>
+								</ul>
+						</aside>
+					</section>
+
+				</section>
+
+				<section>
+					<section>
+						<h2>Use case #1: Machine crashes</h2>
+						<br/><br/>
+						<p><u>IRL</u>: Server un-plugged, hard-disk drive failure, etc.</p>
+						<br/>
+						<p><u>Simulation</u>: Stopping a node</p>
+
+						<aside class="notes">
+							1st case that might happen in a multi-nodes cluster: 1 node "goes
+							off the radars" for any reason!
+						</aside>
+					</section>
+
+					<section data-background="./img/morpheus_zion.jpg">
+						<br/><br/><br/><br/><br/><br/>
+						<br/><br/><br/><br/><br/><br/>
+						<h2>What should we expect?</h2>
+						<p class="fragment">Nada!</p>
+						<aside class="notes">
+							The title of the talk might give you a hint...
+							<br/>
+							DEMO
+							<br/>
+							No impact: The cluster detects the node has become unavailable
+							and the client should not even notice something happened.
+						</aside>
+					</section>
+
+					<section>
+						<h2>How's that?</h2>
+						<h3>Replication provides failover</h3>
+
+						<img height="350" src="./img/replication.png"/>
+						<p>Two types of shards:
+						<ul>
+							<li>Primary shards</li>
+							<li>Replica shards</li>
+						</ul>
+						</p>
+						<aside class="notes">
+							<ul>
+								<li>Primary shards are mainly responsible of indexing</li>
+								<li>Replica shards are used to answer to search request,
+									and to provide failover by replacing missing primary shards</li>
+								<li>The number of primary shards in an index is fixed at the
+									time that an index is created, but the number of replica
+									shards can be changed at any time.</li>
+								<li>(Each document in your index belongs to a single primary
+									shard, so the number of primary shards that you have
+									determines the maximum amount of data that your index can hold.)</li>
+
+							</ul>
+							By default, one replica is used in index configuration.
+							So, what happened here is that one of our replica shards has been
+							promoted as primary shard.
+						</aside>
+					</section>
+
+					<section>
+						<h2>How-to</h2>
+						<p>
+							<img height="40" src="./img/cluster_health.jpg"/>
+						</p>
+						<p><u>Cluster status</u>
+							<ul>
+								<li>Green - all shards are allocated</li>
+								<li>Yellow - the primary shard is allocated but replicas are not</li>
+								<li>Red - the shard is not allocated in the cluster</li>
+							</ul>
+						</p>
+						<aside class="notes">
+							There's a way to know about your replica situation using the
+							custer health API, that returns a simple indicator. Plus the
+							precise numbers of active, unassigned shards.
+							Beware when setting 0 replicas : the yellow status can't happen,
+							and the cluster is either green/red.
+						</aside>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2>Use case #2: Multiple Failures</h2>
+						<br/>
+						<p>What if both nodes hosting PRIMARY and REPLICAS go down?</p>
+						<br/>
+						<p class="fragment">
+							> <strong>Unless they all go down within a short timeframe, you are fine!</strong>
+						</p>
+						<aside class="notes">
+							As you would think, the documents are not written to disk right ahead. 
+							It would be terrible performance-wise. So this is written somewhere in memory before being flushed.
+							We can tweak this parameter in order to favour performance over durability (or vice versa)
+							Let's see precisely how it works but first, let's revive our memories about lucene and ES vocabulary
+						</aside>
+					</section>
+
+					<section>
+						<h2>ElasticSeach uses Lucene</h2>
+						<br/>
+						<img width="700" src="./img/zoom_shard.png"/>
+						<br/>
+						<p class="fade-in">
+							If we zoom in on one node and then on one shard...
+						</p>
+					</section>
+
+					<section>
+						<h2>Inverted index</h2>
+						<img height="300" src="./img/book-index.png"/>
+						<br/>
+						<p>
+							<table  class="center">
+								<thead>
+									<tr>
+										<th>term</th>
+										<th></th>
+										<th>matching documents</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr><td>dog</td><td> => </td><td>doc1, doc45</td></tr>
+									<tr><td>eat</td><td> => </td><td>doc1, doc6, doc30</td></tr>
+									<tr><td>whatever</td><td> => </td><td>doc5</td></tr>
+								</tbody>
+							</table>
+						</p>
+						<aside class="notes">
+							At shard level:
+							Very briefly the structure for storing the data
+							In order to search efficiently, ES (Lucene) builds inverted indices
+							when ingesting documents. The indices are then queried in order
+							to search for terms...
+						</aside>
+					</section>
+
+					<section class="fragments">
+						<h2>Cheat Sheet</h2>
+						<br/>
+						<div class="wrapper">
+							<div class="leftcolumn">
+								<h4>In ElasticSearch</h4>
+								<ul>
+									<li><u>Index</u>: “logical namespace” pointing to n physical shards</li>
+									<li><u>Shard</u>: 1 lucene index</li>
+								</ul>
+							</div>
+							<div class="rightcolumn">
+								<h4>In Lucene</h4>
+								<ul>
+									<li><u>Index</u>: “collection of segments” + a commit point</li>
+									<li><u>Segment</u>: Inverted index</li>
+								</ul>
+							</div>
+						</div>
+						<aside class="notes">
+							Lucene is working like but is not exactly an inverted index.
+							It stores the data into segments (that are immutable which make
+							them good candidates for caching, avoid concurrency, etc.)
+						</aside>
+					</section>
+
+					<section>
+						<h2>Before the commit</h2>
+						<br/>
+						<p><img height="450" src="./img/lucene_buffer_1.png"></p>
+						<p>New documents in the in-memory buffer, ready to commit</p>
+						<aside class="notes">
+							<ol>
+								<li>New documents are collected in an in-memory buffer</li>
+								<li>Every so often, the buffer is commited
+									<ul>
+										<li>A new segment is written to disk.</li>
+										<li>A new commit point is written to disk</li>
+										<li>The disk is fsync’ed, to ensure that they have been physically written.</li>
+									</ul>
+								</li>
+								<li>The new segment is opened, making the documents it contains visible to search</li>
+								<li>The in-memory buffer is cleared</li>
+							</ol>
+						</aside>
+					</section>
+
+					<section>
+						<h2>After the commit</h2>
+						<br/>
+						<img height="450" src="./img/lucene_buffer_2.png">
+						<p>A new segment is added to the commit point and the buffer is cleared</p>
+						<aside class="notes">
+							The buffer size can be changed (at indices module level), meaning that it's globally managed for all indices
+							<ul>
+								<li>The <em>indices.memory.index_buffer_size</em> accepts either a percentage or a byte size value. 
+									It defaults to 10%, meaning that 10% of the total memory allocated to a node will be used as the indexing buffer size.
+								</li>
+								<li>This amount is then divided between all the different shards.</li>
+								<li>Also, if percentage is used, it is possible to <em>set min_index_buffer_size</em> (defaults to 48mb) and <em>max_index_buffer_size</em> (defaults to unbounded).</li>
+								<li>The <em>indices.memory.min_shard_index_buffer_size</em> allows to set a hard lower limit for the memory allocated per shard for its own indexing buffer. It defaults to 4mb.</li>
+							</ul>
+						</aside>
+					</section>
+
+					<section class="fragments">
+						<h2>In case of a power failure?</h2>
+						<br/>
+						<p class="fade-in">
+							<img height="450" src="./img/no_electricity_awesome.jpg">
+							<br/>
+							<h3 class="fade-in">Translog, baby!</h3>
+						</p>
+
+						<aside class="notes">
+							Without an fsync to flush data in the file-system cache to disk,
+							we cannot be sure that the data will still be there after a power failure,
+							or even after exiting the application normally.
+							For Elasticsearch to be reliable, it needs to ensure that changes are persisted to disk.
+						</aside>
+					</section>
+
+					<section>
+						<h2>Transaction log = WAL</h2>
+						<br/>
+						<p><img height="450" src="./img/translog_1.png"></p>
+						<p>Documents are being written in buffer AND translog</p>
+						<aside class="notes">
+							<ul>
+								<li>Each shard has a transaction log (translog) associated with it. </li>
+								<li>It allows to guarantee that when an index/delete operation occurs, it is applied atomically, while not "committing" the internal Lucene index for each request. </li>
+							</ul>
+						</aside>
+					</section>
+
+					<section>
+						<h2>Transaction log = WAL</h2>
+						<br/>
+						<p><img height="450" src="./img/translog_2.png"></p>
+						<p>The reader has been refreshed, buffer is cleared but not the translog</p>
+					</section>
+
+					<section>
+						<h2>Transaction log = WAL</h2>
+						<br/>
+						<p><img height="450" src="./img/translog_3.png"></p>
+						<p>Other documents being ingested</p>
+						<aside class="notes">
+							Documents keep being indexed...
+						</aside>
+					</section>
+
+					<section>
+						<h2>Transaction log = WAL</h2>
+						<br/>
+						<p><img height="450" src="./img/translog_4.png"></p>
+						<p>At some point, the translog is fsync'ed = "commit"<p>
+						<aside class="notes">
+							<p>A flush ("commit") still happens based on several parameters:
+								<ul>
+									<li>After how many operations to flush (unlimited)</li>
+									<li>Once the translog hits this size (200mb)</li>
+									<li>The period with no flush happening(30m)</li>
+									<li>How often to check if a flush is needed (5s)</li>
+									<li>How often the translog is fsynced to disk(5s)</li>
+								</ul>
+							</p>
+
+							<p>Sure you could propose to fsync more frequently…
+							…at the cost of indexing performance! and it is unlikely to provide more reliability at the end of the day</p>
+						</aside>
+					</section>
+
+					<section class="fragments">
+						<h2>How safe is the translog?</h2>
+						<br/>
+						<p>Writes to a file will not survive a reboot/crash</p>
+						<p><strong>until the file has been fsync'ed to disk</strong></p>
+						<br/>
+						<p class="fragment" data-fragment-index="1">
+							Conjunction of the following mechanisms lowers the odds of a loss:
+							<ul class="fragment" data-fragment-index="1"><li>Translog is fsync'ed every 5 seconds, by default</li>
+							<li>The data is held in the replicas as well!</li>
+							</ul><br/>
+						</p>
+						<aside class="notes">
+							<p>The purpose of the translog is to ensure that operations are not lost.
+							This begs the question: how safe is the translog itself?</p>
+							<p>Fortunately, the translog is only part of a much bigger system.
+							<ul>
+								<li>write concern: Remember that an indexing request is only considered to be successful once it has completed on both the primary shard and all replica shards.</li>
+								<li>replicas: Even were the node holding the primary shard to suffer catastrophic failure, it would be unlikely to affect the nodes holding the replica shards at the same time.</li>
+							</ul>
+							</p>
+							<p>Sure you could propose to fsync more frequently…
+							…at the cost of indexing performance! and it is unlikely to provide more reliability at the end of the day</p>
+						</aside>
+					</section>
+				</section>
+
+				<section>
+					<h3>Summary</h3>
+					<br/>
+					<p>
+						<ul>
+							<li><strong>Machine crashes</strong> -> Service continuity</li>
+							<li><strong>Primary + replica fail</strong> -> No data loss</li>
+							<li>Network-related failures</li>
+							<li>Memory-related failures</li>
+							<li>Disk-related failures</li>
+						</ul>
+					</p>
+				</section>
+
+				<section>
+					<section>
+						<h1>Network failures</h1>
+						<aside class="notes">
+							Now, let's talk about some use cases related to network failures.
+							First off, let's briefly introduce the ES component responsible
+							for ruling the cluster's life.
+						</aside>
+					</section>
+
+					<section>
+							<h2>Zen discovery</h2>
+							<p>
+								<ul>
+								<li>Ping</li>
+								<li>Fault detection:
+									<ul>
+										<li>Master -> other nodes</li>
+										<li>Nodes -> master</li>
+									</ul>
+								</li>
+								<li>Master election</li>
+								<li>Cluster state updates</li>
+								</ul>
+							</p>
+							<aside class="notes">
+								own consensus algorithm
+								different from raft or paxos or even ZAB
+							</aside>
+					</section>
+
+					<section>
+							<h2>Master's duty</h2>
+							<br/>
+							<p>
+								Maintain the <u>global cluster state</u>:
+								<ul>
+								<li>Reassign shards when nodes come in or out</li>
+								<li>Communicate the cluster state changes to other nodes</li>
+								</ul>
+							</p>
+							<aside class="notes">
+								<ul>
+									<li>The master node is the only node in a cluster that can
+										make changes to the cluster state.</li>
+									<li>The master node processes one cluster state update at a
+										time, applies the required changes and publishes the updated
+										cluster state to all the other nodes in the cluster.</li>
+									<li>Each node receives the publish message, updates its own
+										cluster state and replies to the master node, which waits
+										for all nodes to respond, up to a timeout, before going
+										ahead processing the next updates in the queue.
+										The discovery.zen.publish_timeout is set by default to 30
+										seconds and can be changed dynamically through the cluster
+										update settings api</li>
+								</ul>
+							</aside>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2>Use case #3: Master down</h2>
+						<br/>
+						<div class="fade-in">
+							<ul>
+								<li><u>IRL</u>: load is too heavy and the node crashes</li>
+								<li><u>Simulation</u>: Stop the docker container hosting the master node</li>
+							</ul>
+						</div>
+						<aside class="notes">
+								<ul>
+									<li>A node becomes inoperative without an active master
+										(since 1.4.0 beta1, it can be set with <a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/1.4/modules-discovery-zen.html#no-master-block">discovery.zen.no_master_block</a>)
+											<ul>
+												<li><em>all</em>: both read & writes—will be rejected</li>
+												<li><em>write</em>: (default) Write operations will be rejected. Read operations will succeed, based on the last known cluster configuration.
+													This may result in partial reads of stale data as this node may be isolated from the rest of the cluster.</li>
+											</ul>
+									</li>
+									<li>Thus the election receives a high priority</li>
+								</ul>
+						</aside>
+					</section>
+
+					<section>
+							<h2>Dedicated masters</h2>
+							<br/>
+							<p>(in critical clusters)</p>
+							<aside class="notes">
+								Dedicated master nodes are nodes with the settings node.data: false and node.master: true.
+								We actively promote the use of dedicated master nodes in critical clusters to make sure that there are 3 dedicated nodes whose only role is to be master,
+								a lightweight operational (cluster management) responsibility.
+
+								By reducing the amount of resource intensive work that these nodes do (in other words, do not send index or search requests to these dedicated master nodes),
+								we greatly reduce the chance of cluster instability.
+							</aside>
+					</section>
+					<section>
+						<h2>How-to</h2>
+						<h3>Check if the master is at risk</h3>
+						<p>
+							<img src="./img/pending_tasks.png"/>
+						</p>
+						<aside class="notes">
+							Another very convenient cat API method
+						</aside>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2>Use case #4: Network partition</h2>
+						<h4>There can only be one (master)!</h4>
+						<br/>
+						<div class="fade-in">
+							<ul>
+								<li><u>IRL</u>: Network failure that splits the cluster into multiple sets of nodes</li>
+								<li><u>Simulation</u>: using Blockade to emulate partitions</li>
+							</ul>
+						</div>
+						<aside class="notes">
+							So here we suppose there is a network failure that partition our network
+							in 2. Let's say we had an initial cluster of 5 nodes, we can consider
+							a first set of 2 nodes on one side and another set of 3 nodes on the other.
+
+							As a matter of fact, there was only 1 master node. It will end up in 1 of the 2 sets.
+
+							So there might happen an election on the cluster that does'nt have any master yet
+							> 2nd cluster will form
+
+							the 2 clusters will diverge and it's gonna be real hard (not to say impossible) for them to rejoin
+							even after the partition is long gone.
+						</aside>
+					</section>
+
+					<section>
+						<h2>Again, we expect resiliency</h2>
+						<p class="fragment">
+							<ul>
+							<li>The client should be able to index documents and search</li>
+							<li>The cluster should reform once the network gets back to normal</li>
+							</ul>
+						</p>
+						<br/>
+						<img width="400" src="./img/split-brain.png">
+						<p>We want to prevent a <strong>split brain</strong> from emerging</p>
+						<aside class="notes">
+						</aside>
+					</section>
+
+					<section>
+						<h2>Split brain safeguard</h2>
+						<img width="400" src="./img/half-brain.png">
+						<p>minimum_master_nodes = (n / 2) + 1</p>
+						<aside class="notes">
+								ElasticSearch knows how to deal with such situations:
+								- you set a correct minimum_master_nodes = 1 more than half the total number of master-eligible nodes in the cluster
+								-- the partition with a quorum elects a new master - if the previous master doesn't belong to it
+								-- the other partition(s) is blocked => no more writing and reading (you can tweak this)
+								if/once the network gets back to normal, a reconciliation phase starts to let the minority nodes join in.
+
+								>> demo without minimum_master_nodes properly set and then properly set?
+						</aside>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2>Use Case #5: Intersection</h2>
+						<br/>
+						<p>
+							The brain-melting issue
+							<br/>
+							<img height="300" src="img/intersect_partition.png"/>
+							<br/>
+							<p class="fragment fade-in">
+								Issue #2488 on Github
+								<br/>
+								Fixed in v1.4.0
+							</p>
+						</p>
+						<aside class="notes">
+							ElasticSearch knows how to deal with such partition failures. But some corner cases remain, such as intersect partitions
+						</aside>
+					</section>
+				</section>
+
+				<section>
+					<h3>Summary</h3>
+					<br/>
+					<p>
+						<ul>
+							<li><strong>Machine crashes</strong> -> Service continuity</li>
+							<li><strong>Primary + replica fail</strong> -> No data loss</li>
+							<li><strong>Network-related failures</strong> -> Service continuity & no data loss</li>
+							<li>Memory-related failures</li>
+							<li>Disk-related failures</li>
+						</ul>
+					</p>
+					<aside class="notes">
+						Ok we have seen the "remedies" but now we will try to understand
+						the root causes of node crashes/slow-down
+					</aside>
+				</section>
+
+				<!-- TOM //-->
+
+				<section>
+					<section>
+						<h2>Use Case #6</h2>
+						<br/>
+						<p>If a node takes a long time to answer?</p>
+						<p class="fragment">> It is considered down.</p>
+						<br/><br/><br/><br/>
+						<aside class="notes">
+							There's no way to know what's going on and this is a major cause of cluster instability as it can lead to shard being moved
+							to other nodes... increasing the traffic.
+							So what can cause a node to be so long that its considered down ?
+						</aside>
+					</section>
+
+					<section data-background="./img/stopping_bullets.jpg">
+						<h2 style="color:white;">Garbage collections</h2>
+						<h3 style="color:white;">
+							(stop-the-world)
+						</h3>
+						<aside class="notes">
+							First thing is : too long GC phases. As you know, GC has stop-the-world phases during which no other operation can be performed.
+
+							Note: default GC for ElasticSearch is Concurrent-Mark and Sweep (CMS) (runs concurrently with the execution of the application)
+							=> currently, best GC for low latency software (as ES) so stick with it! only 2 stop-the-world phases which are very short
+							under normal circumstances.
+
+							How to minimize this ? There are several means but we need a little information about ElasticSearch memory consumption.
+						</aside>
+					</section>
+
+					<section>
+						<h2>ElasticSearch and Memory</h2>
+						<p>Memory hungry software</p>
+						<p>Result: very large Heap result in long GCs</p>
+						<p>Reason: caches lots of data</p>
+						<p>Example: filters</p>
+						<aside class="notes">
+							ElasticSearch tends to consume a lot of memory, usually as much as it has been allocated, in order to answer as fast as possible :)
+							Continuously increasing the heap size results in longer and longer GC.
+							A first thing to do is lower the memory consumption. But how ? why does it need so much memory?
+							Actually, ES caches lots of data : for example, filters are cached. But it's not that
+							dangerous as this cache is limited (by default) to 10% of the Heap Size.
+						</aside>
+					</section>
+
+					<section>
+						<h2>Fielddata</h2>
+						<h4>Uninverting the inverted index</h4>
+						<br/>
+						<p>Used for :</p>
+						<ul>
+							<li>Sorting</li>
+							<li>Aggregations</li>
+							<li>Scripts</li>
+							<li>Some relationships</li>
+						</ul>
+						<aside class="notes">
+							The biggest memory consumption is related to fielddatas, which are data structures (lazily) loaded in memory and used for various important things.
+							It is not intended to be a transient cache, as it's very costly to build up, so be aware that, by default, its size is <strong>unbounded !</strong>.
+							In order to limit GC, some actions must be taken against it too.
+						</aside>
+					</section>
+
+					<section style="text-align: left">
+						<h2>How to lower GC duration?</h2>
+						<h3>Limit Heap Size!</h3>
+						<br/>
+						<p class="fragment" data-fragment-index="1">
+							Recommendations :
+							<ul class="fragment" data-fragment-index="1">
+								<li>50% available RAM</li>
+								<li>32 Gb max (compressed oops)</li>
+							</ul>
+						</p>
+						<br/>
+						<p class="fragment" data-fragment-index="2">
+							Use <strong>doc_values</strong> instead of fielddata
+							<ul class="fragment" data-fragment-index="2">
+								<li>Built at indexing time rather than search time</li>
+								<li>Increase overall index size, but not as limited as heap</li>
+								<li>Since 1.4.0 => only 10-20% slower than in-memory fielddata</li>
+							</ul>
+						</p>
+						<br/>
+						<aside class="notes">
+							First : limit the heap size.
+							Official recommendation are currently :
+							<ul>
+								<li>Limit it to 50% of the available RAM as Lucene has a very good use of the filesystem cache.</li>
+								<li>The maximum size should be 32 Gb as the compressed oops (why consume only 4 bytes per pointer instead of 8 bytes) cannot be used further</li>
+							</ul>
+
+							Secondly : use doc_values. It's the same data structure as fielddata, but written on disk.
+							This has many advantages (no heap size limit, already built at search time) but some cons too :
+							the index is bigger, it slows documents indexing and it has an impact on search performance.
+							However, the latter has been greatly reduced with the 1.4.0 release and using doc_values is
+							now only 10 to 20% slower than using in-memory fielddata.
+						</aside>
+					</section>
+
+					<section style="text-align: left">
+						<h2>How to lower GC duration?</h2>
+						<h3>Other tips...</h3>
+						<br/>
+						<p>Beware of caches sizes!</p>
+						<br/>
+						<p>Don't make it swap!</p>
+						<br/>
+						<p>Tests, tests, tests!</p>
+						<br/><br/><br/>
+						<aside class="notes">
+							Third thing is to be careful when setting cache size. For example, fielddata cache size is unbounded by default. Setting a maximum size, either absolute or relative,
+							will cause evictions to occur. Evictions causes large amounts of garbage that will need to be collected later.
+
+							Prevent swapping which is terrible for performance! (vm.swapiness, bootstrap.mlockall for Unix systems).
+
+							And do some tests in real conditions, monitoring your memory usage.
+						</aside>
+					</section>
+
+					<section style="text-align: left">
+						<h2>One more thing...</h2>
+						<br/>
+						<p><strong>OutOfMemoryException = node killer</strong></p>
+						<br/>
+						<p>ElasticSearch lets you avoid it: <strong>Circuit-breakers</strong></p>
+						<p>- v1.0 : fielddata circuit-breaker</p>
+						<p>- v1.4: request and parent (global) circuit-breakers</p>
+						<br/><br/><br/>
+						<aside class="notes">
+							Using so much memory could lead to OutOfMemoryException (aggregations, too many fielddata)...
+							To prevent this kind of situation, circuit breakers have been introduced in ElastioSearch.
+							First, in v1.0, for the fielddata (which is, rememrber, the most important memory consumer).
+							It will prevent the fielddata for a field to be loaded in memory if it consume more than 60% (default) of the heap size.
+							With v1.4, request and parent (global) circuit-breakers have been added too.
+							This is for your information to know it exists :)
+						</aside>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2>Use case #7: data corruption</h2>
+						<br/>
+						<div class="fade-in">
+							<p>
+								Hardware failure, JVM bug, travelling over the wire...
+							</p>
+							<br/>
+							<p>
+								If not detected, could be replicated everywhere
+							</p>
+						</div>
+						<aside class="notes">
+							Another very annoying case is the data corruption. Data integrity, especially with backups, is a very high priority.
+							The major risk here is silent data corruption. Having this corrupted data copied to replica shards would be baaaaaad, as it wouldn't
+							be possible anymore to drop the corrupted primary shard to replace it with a cleaner version!
+						</aside>
+					</section>
+					<section>
+						<h2>Demo time</h2>
+						<br/>
+						<p>
+							Let's try with a corrupted snapshot...
+						</p>
+						<p>
+							Error! (and red status)
+						</p>
+						<aside class="notes">
+							Let's try with a slightly corrupted snapshot... Error!
+							>> demo
+						</aside>
+					</section>
+					<section>
+						<h2>How does it work?</h2>
+						<p>
+							Since Lucene v4.8...
+						</p>
+						<img class="fragment" src="img/checksum.jpg"/>
+						<aside class="notes">
+							Lucene v4.8 has added checksums on all the files (in footer)
+						</aside>
+					</section>
+					<section>
+						<h2>How does it work?</h2>
+						<br/>
+						<p>
+							Lucene 4.8 <=> ElasticSearch 1.2.0
+						</p><br/>
+						<p>
+							1.3.X : snapshot/restore and recovery
+						</p><br/>
+						<p>
+							1.4.0 : translog!
+						</p><br/><br/>
+						<aside class="notes">
+							Since ES v1.2.0, the checksums are computed, but it wasn't used everywhere but only
+							to verify small lucene files on read, and larger file on merge
+							Then :
+							1.3+ : using checksums to verify shards during snapshot/restore & recovery phase
+							1.4.0 : add a checksum to every translog entry
+						</aside>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2>Use case #8: No space left</h2>
+						<br/>
+						<img src="img/bus_plein.jpg"/>
+						<p>That's really not good for the node</p>
+						<aside class="notes">
+							Another case involving hard disk is a pretty simple one to picture : what happen if you
+							don't have any space left on your storage?
+
+							Let's try to index some data on an almost full node...
+							>> demo with container almost full and shard allocation disabled
+						</aside>
+					</section>
+					<section>
+						<h3>How to prevent a "no space left"?</h3>
+						<br/>
+						<h4>
+							Disk-based shard allocation
+						</h4>
+						<p>
+							Feature added in v0.90.4
+						</p>
+						<p>
+							Enabled by default since v1.3.0
+						</p>
+						<aside class="notes">
+							This can be prevented thanks to disk based shard allocation, which has been added in version
+							0.90.4 and is enabled by default.
+
+							For our demo purpose, we disabled it without telling you, just to showcase what happened :)
+							Don't try this at home!
+						</aside>
+					</section>
+					<section style="text-align: left">
+						<h3>Disk-based shard allocation</h3>
+						<br/>
+						<p>
+							Cluster-aware of disk usage
+						</p>
+						<br/>
+						<p>
+							There are 2 tiers:
+							<ul>
+								<li>First tier (>85%) : stop shard allocation to node</li>
+								<li>Second tier (>90%) : relocate existing shards</li>
+							</ul>
+						</p>
+						<aside class="notes">
+							ElasticSearch checks disk usage for the nodes every 30s. Once disk usage reach the first
+							tier of the disk-based shard configuration, it stops allocating shards to the node.
+							But if disk usage keeps growing and reach second tier, it will try to relocate the existing
+							shards to another node, to free up space.
+							The default tiers are set to respectively 85% and 90%.
+						</aside>
+					</section>
+					<section>
+						<h3>Final advice regarding "No space left"</h3>
+						<br/>
+						<h4>Monitor your disk usage!</h4>
+					</section>
+				</section>
+
+				<section>
+					<h2>Conclusion</h2>
+					<br/>
+					<p>Since mid-2014 :</p>
+					<ul>
+						<li>Major improvements regarding resiliency ( > 1.4 )</li>
+						<li>Go visit the <em>Resiliency status</em> page!</li>
+					</ul>
+					<aside class="notes">
+						To conclude this talk, we have seen that resiliency has been a big topic on the past semester for ElasticSearch
+						There are still some things to improve like :
+						<ul>
+							<li>finalize the use of checksums</li>
+							<li>covering all the Jepsen failure scenarios</li>
+							<li>Preventing taht JVM versions known as bad could be used</li>
+						</ul>
+					</aside>
+				</section>
+
+				<section>
+					<p> From :<br/>
+						<img src="img/aphyr_waiting.jpg" width="900"/>
+					</p>
+				</section>
+
+				<section>
+					<p> To :<br/>
+						<img src="img/aphyr_documentation.jpg" width="900"/>
+						<img src="img/aphyr_seriously.jpg" width="900"/>
+					</p>
+				</section>
+
+				<section>
+					<h2>Questions / Answers</h2>
+					<br/>
+
+					<p><strong>Use cases summary</strong>
+					<ol>
+						<li>Node crash</li>
+						<li>Translog</li>
+						<li>Master election</li>
+						<li>Split-brain</li>
+						<li>Intersect partition</li>
+						<li>Limit memory usage</li>
+						<li>Circuit breaker</li>
+						<li>Data corruption</li>
+						<li>No space left on disk</li>
+					</ol>
+					</p>
+				</section>
+				<section>
+					<h1>Thanks =)</h1>
+				</section>
+			</div>
+		</div>
+
+		<script src="reveal.js/lib/js/head.min.js"></script>
+		<script src="reveal.js/js/reveal.min.js"></script>
+
+		<script>
+
+			// Full list of configuration options available here:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+				transition: Reveal.getQueryHash().transition || 'fade', // default/cube/page/concave/zoom/linear/fade/none
+				backgroundTransition:'default', // default / none / slide / concave / convex / zoom
+
+				// Parallax scrolling
+				// parallaxBackgroundImage: 'https://s3.amazonaws.com/hakim-static/reveal-js/reveal-parallax-1.jpg',
+				// parallaxBackgroundSize: '2100px 900px',
+
+				// Optional libraries used to extend on reveal.js
+				dependencies: [
+					{ src: 'reveal.js/lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'reveal.js/plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'reveal.js/plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'reveal.js/plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'reveal.js/plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+					{ src: 'reveal.js/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
