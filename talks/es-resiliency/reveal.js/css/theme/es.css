@@ -166,3 +166,17 @@ table.center {
 .rightcolumn {
   width: 50%;
 }
+
+section#authors ul {
+  list-style-type: none;
+}
+
+section#authors img{
+  border: none;
+  box-shadow: none;
+}
+
+.reveal i{
+    font-family: 'FontAwesome';
+    font-style: normal;
+}
